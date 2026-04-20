@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字走迷城 - Word Labyrinth</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            max-width: 1000px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .grid-container {
+            flex: 1;
+            min-width: 300px;
+            max-width: 600px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 540px;
+            margin: 0 auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .cell {
+            width: 100%;
+            padding-bottom: 100%;
+            position: relative;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+            border-radius: 8px;
+        }
+        .cell:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .cell.player {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border: 2px solid #2e7d32;
+            color: white;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.6);
+        }
+        .cell.enemy {
+            background: linear-gradient(135deg, #f44336, #e53935);
+            border: 2px solid #b71c1c;
+            color: white;
+            box-shadow: 0 0 15px rgba(244, 67, 54, 0.6);
+        }
+        .cell.item {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            border: 2px solid #0d47a1;
+            color: white;
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.6);
+        }
+        .cell.door {
+            background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+            border: 2px solid #4a148c;
+            color: white;
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.6);
+        }
+        .cell.obstacle {
+            background: linear-gradient(135deg, #616161, #424242);
+            border: 2px solid #212121;
+            color: white;
+            box-shadow: 0 0 15px rgba(97, 97, 97, 0.6);
+        }
+        .cell.powerup {
+            background: linear-gradient(135deg, #ffeb3b, #fbc02d);
+            border: 2px solid #f57f17;
+            color: #333;
+            box-shadow: 0 0 15px rgba(255, 235, 59, 0.8);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(255, 235, 59, 0.8);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 25px rgba(255, 235, 59, 1);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(255, 235, 59, 0.8);
+            }
+        }
+        .cell-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .status-panel {
+            flex: 1;
+            min-width: 250px;
+            max-width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .status-item {
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: white;
+        }
+        .status-item strong {
+            color: #ffeb3b;
+        }
+        .pouch {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .pouch-item {
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .pouch-item:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .log {
+            height: 200px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            overflow-y: auto;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .log p {
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 12px;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+        .btn:hover {
+            background: linear-gradient(135deg, #45a049, #3d8b40);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+        }
+        .title {
+            color: white;
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 16px 32px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .instructions {
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            margin-bottom: 32px;
+            max-width: 600px;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .grid {
+                max-width: 360px;
+                padding: 12px;
+            }
+            .status-panel {
+                width: 100%;
+                max-width: 360px;
+                padding: 20px;
+            }
+            .cell {
+                font-size: 18px;
+            }
+            .title {
+                font-size: 32px;
+                padding: 12px 24px;
+            }
+            .instructions {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">字走迷城</h1>
+    <p class="instructions">使用方向键或滑动屏幕移动。收集汉字部件，合成正确汉字来击败敌人、打开门！</p>
+    
+    <div class="game-container">
+        <div class="grid-container">
+            <div class="grid" id="grid"></div>
+        </div>
+        
+        <div class="status-panel">
+            <div class="status-item">
+                <strong>生命值:</strong> <span id="hp">3</span>
+            </div>
+            <div class="status-item">
+                <strong>攻击力:</strong> <span id="attack">1</span>
+            </div>
+            <div class="status-item">
+                <strong>得分:</strong> <span id="score">0</span>
+            </div>
+            <div class="status-item">
+                <strong>收集袋:</strong>
+                <div class="pouch" id="pouch"></div>
+            </div>
+            <button class="btn" id="craftBtn">合成</button>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // 游戏状态管理
+        class GameState {
+            constructor() {
+                this.map = this.generateMap();
+                this.player = {
+                    x: 0,
+                    y: 0,
+                    hp: 3,
+                    attack: 1,
+                    pouch: [],
+                    score: 0
+                };
+                this.recipes = this.generateRecipes();
+                this.logs = [];
+                this.init();
+            }
+
+            generateMap() {
+                const map = [];
+                const elements = ['木', '日', '月', '亻', '氵', '火', '土', '金', '石', '口', '扌', '纟', '艹', '宀', '广', '女', '子', '田', '力', '冖', '攵', '豕', '囗', '化', '十', '人', '民', '讠', '皆'];
+                const powerUps = ['⭐', '💎', '❤️', '⚡', '🧩'];
+                
+                for (let y = 0; y < 9; y++) {
+                    const row = [];
+                    for (let x = 0; x < 9; x++) {
+                        let type = 'normal';
+                        let char = elements[Math.floor(Math.random() * elements.length)];
+                        
+                        const rand = Math.random();
+                        if (rand < 0.12) {
+                            type = 'enemy';
+                            // 不同类型的敌人
+                            const enemyTypes = ['亻戈', '氵去', '木目', '火因', '土也', '女干', '石皮', '金欠'];
+                            char = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                        } else if (rand < 0.17) {
+                            type = 'door';
+                            char = '门';
+                        } else if (rand < 0.25) {
+                            type = 'powerup';
+                            char = powerUps[Math.floor(Math.random() * powerUps.length)];
+                        } else if (rand < 0.35) {
+                            type = 'item';
+                        }
+                        
+                        row.push({
+                            char: char,
+                            type: type
+                        });
+                    }
+                    map.push(row);
+                }
+                
+                // 确保起点安全
+                map[0][0] = { char: '木', type: 'normal' };
+                // 在终点放置门
+                map[8][8] = { char: '门', type: 'door' };
+                // 放置一些敌人作为障碍
+                map[2][2] = { char: '亻戈', type: 'enemy' };
+                map[4][4] = { char: '氵去', type: 'enemy' };
+                map[6][6] = { char: '木目', type: 'enemy' };
+                map[1][7] = { char: '火因', type: 'enemy' };
+                map[7][1] = { char: '土也', type: 'enemy' };
+                // 放置一些障碍物（不可通过的格子）
+                map[3][1] = { char: '■', type: 'obstacle' };
+                map[3][5] = { char: '■', type: 'obstacle' };
+                map[5][3] = { char: '■', type: 'obstacle' };
+                map[5][7] = { char: '■', type: 'obstacle' };
+                map[7][5] = { char: '■', type: 'obstacle' };
+                // 放置一些特殊道具
+                map[1][1] = { char: '⭐', type: 'powerup' };
+                map[7][7] = { char: '💎', type: 'powerup' };
+                map[4][2] = { char: '❤️', type: 'powerup' };
+                map[2][6] = { char: '⚡', type: 'powerup' };
+                map[6][2] = { char: '🧩', type: 'powerup' };
+                
+                return map;
+            }
+
+            generateRecipes() {
+                return {
+                    '明': ['日', '月'],
+                    '林': ['木', '木'],
+                    '森': ['木', '木', '木'],
+                    '床': ['木', '广'],
+                    '休': ['亻', '木'],
+                    '江': ['氵', '工'],
+                    '河': ['氵', '可'],
+                    '炎': ['火', '火'],
+                    '尘': ['小', '土'],
+                    '地': ['土', '也'],
+                    '金': ['金'],
+                    '石': ['石'],
+                    '和': ['禾', '口'],
+                    '扣': ['扌', '口'],
+                    '红': ['纟', '工'],
+                    '草': ['艹', '早'],
+                    '宝': ['宀', '玉'],
+                    '府': ['广', '付'],
+                    '伐': ['亻', '戈'],
+                    '法': ['氵', '去'],
+                    '相': ['木', '目'],
+                    '闪': ['门', '人'],
+                    '间': ['门', '日'],
+                    '闷': ['门', '心'],
+                    '闲': ['门', '木'],
+                    '闹': ['门', '市'],
+                    '阅': ['门', '兑'],
+                    '阁': ['门', '各'],
+                    '闻': ['门', '耳'],
+                    '问': ['门', '口'],
+                    '好': ['女', '子'],
+                    '男': ['田', '力'],
+                    '学': ['子', '冖', '攵'],
+                    '家': ['宀', '豕'],
+                    '国': ['囗', '玉'],
+                    '中': ['中'],
+                    '华': ['化', '十'],
+                    '人': ['人'],
+                    '民': ['民'],
+                    '和': ['禾', '口'],
+                    '谐': ['讠', '皆']
+                };
+            }
+
+            init() {
+                this.renderMap();
+                this.updateStatus();
+                this.addLog('游戏开始！使用方向键移动，收集汉字部件合成汉字。');
+            }
+
+            move(direction) {
+                const oldX = this.player.x;
+                const oldY = this.player.y;
+                let newX = oldX;
+                let newY = oldY;
+
+                switch (direction) {
+                    case 'up': newY--; break;
+                    case 'down': newY++; break;
+                    case 'left': newX--; break;
+                    case 'right': newX++; break;
+                }
+
+                // 边界检测
+                if (newX < 0 || newX >= 9 || newY < 0 || newY >= 9) {
+                    this.addLog('不能移动到边界外！');
+                    return;
+                }
+
+                const targetCell = this.map[newY][newX];
+
+                // 检查是否是障碍物
+                if (targetCell.type === 'obstacle') {
+                    if (this.player.attack > 10) {
+                        // 攻击力大于10，强制摧毁障碍物
+                        this.addLog('用强大的攻击力摧毁了障碍物！');
+                        targetCell.type = 'normal';
+                        targetCell.char = '';
+                    } else {
+                        this.addLog('遇到障碍物，无法通过！');
+                        return;
+                    }
+                }
+
+                let shouldUpdatePosition = true;
+
+                if (targetCell.type === 'enemy') {
+                    const battleResult = this.battle(targetCell);
+                    if (!battleResult) {
+                        // 战斗失败，回到原来的位置
+                        shouldUpdatePosition = false;
+                        this.addLog('被击退了！');
+                    } else {
+                        // 战斗胜利，增加得分
+                        this.player.score += 100;
+                        this.addLog(`获得100分！`);
+                    }
+                } else if (targetCell.type === 'door' && targetCell.char === '门') {
+                    this.checkDoor();
+                } else if (targetCell.type === 'powerup') {
+                    // 处理道具
+                    this.collectPowerUp(targetCell.char);
+                    targetCell.type = 'normal';
+                    targetCell.char = '';
+                    this.player.score += 50;
+                    this.addLog(`获得50分！`);
+                } else {
+                    // 只有当格子不为空时才收集部件
+                    if (targetCell.char) {
+                        // 收集部件
+                        this.player.pouch.push(targetCell.char);
+                        this.addLog(`收集到部件: ${targetCell.char}`);
+                        // 清空当前格子
+                        targetCell.char = '';
+                        // 收集部件增加得分
+                        this.player.score += 10;
+                        this.addLog(`获得10分！`);
+                    }
+                    // 空格子不做任何记录
+                }
+
+                // 更新玩家位置
+                if (shouldUpdatePosition) {
+                    this.player.x = newX;
+                    this.player.y = newY;
+                }
+                this.renderMap();
+                this.updateStatus();
+            }
+
+            battle(enemy) {
+                const craftable = this.findCraftable();
+                if (craftable.length > 0 || this.player.attack > 15) {
+                    if (craftable.length > 0) {
+                        // 使用第一个可合成的汉字攻击
+                        const word = craftable[0];
+                        this.addLog(`用「${word}」击败了错字兽！`);
+                    } else {
+                        // 攻击力大于15，强制击败敌人
+                        this.addLog('用强大的攻击力强制击败了错字兽！');
+                    }
+                    // 移除敌人
+                    enemy.type = 'normal';
+                    enemy.char = '';
+                    return true; // 战斗成功
+                } else {
+                    this.player.hp--;
+                    this.addLog('文字不通，受到反击！');
+                    if (this.player.hp <= 0) {
+                        this.gameOver();
+                    }
+                    return false; // 战斗失败
+                }
+            }
+
+            checkDoor() {
+                const craftable = this.findCraftable();
+                if (craftable.length > 0) {
+                    this.addLog('恭喜！用文字的力量打开了大门！');
+                    this.addLog('游戏胜利！');
+                    // 禁用移动
+                    document.removeEventListener('keydown', this.handleKeydown);
+                    // 显示重新开始按钮
+                    this.showRestartButton();
+                } else {
+                    this.addLog('需要合成正确的汉字才能打开门！');
+                }
+            }
+
+            findCraftable() {
+                const craftable = [];
+                
+                for (const [word, recipe] of Object.entries(this.recipes)) {
+                    const hasAllParts = recipe.every(part => {
+                        const partCountInPouch = this.player.pouch.filter(p => p === part).length;
+                        const partCountInRecipe = recipe.filter(r => r === part).length;
+                        return partCountInPouch >= partCountInRecipe;
+                    });
+                    
+                    if (hasAllParts) {
+                        craftable.push(word);
+                    }
+                }
+                
+                return craftable;
+            }
+
+            craft() {
+                const craftable = this.findCraftable();
+                if (craftable.length > 0) {
+                    const word = craftable[0];
+                    this.addLog(`合成了「${word}」！`);
+                    // 从收集袋中移除使用的部件
+                    const recipe = this.recipes[word];
+                    recipe.forEach(part => {
+                        const index = this.player.pouch.indexOf(part);
+                        if (index !== -1) {
+                            this.player.pouch.splice(index, 1);
+                        }
+                    });
+                    // 每合成一个汉字，增加一点生命值和攻击力
+                    this.player.hp++;
+                    this.player.attack++;
+                    this.addLog(`生命值+1，攻击力+1！`);
+                    this.updateStatus();
+                } else {
+                    this.addLog('没有可合成的汉字！');
+                }
+            }
+
+            gameOver() {
+                this.addLog('游戏结束！');
+                // 禁用移动
+                document.removeEventListener('keydown', this.handleKeydown);
+                // 显示重新开始按钮
+                this.showRestartButton();
+            }
+
+            showRestartButton() {
+                const statusPanel = document.querySelector('.status-panel');
+                // 检查是否已经存在重新开始按钮
+                if (!document.getElementById('restartBtn')) {
+                    const restartBtn = document.createElement('button');
+                    restartBtn.id = 'restartBtn';
+                    restartBtn.className = 'btn';
+                    restartBtn.textContent = '重新开始';
+                    restartBtn.style.marginTop = '10px';
+                    restartBtn.addEventListener('click', () => this.restartGame());
+                    statusPanel.appendChild(restartBtn);
+                }
+            }
+
+            collectPowerUp(powerUp) {
+                switch (powerUp) {
+                    case '⭐':
+                        // 星星：增加2点攻击力
+                        this.player.attack += 2;
+                        this.addLog('获得星星！攻击力+2！');
+                        break;
+                    case '💎':
+                        // 宝石：增加500分
+                        this.player.score += 500;
+                        this.addLog('获得宝石！+500分！');
+                        break;
+                    case '❤️':
+                        // 爱心：恢复2点生命值
+                        this.player.hp += 2;
+                        this.addLog('获得爱心！生命值+2！');
+                        break;
+                    case '⚡':
+                        // 闪电：临时增加移动速度（视觉效果）
+                        this.addLog('获得闪电！移动速度提升！');
+                        break;
+                    case '🧩':
+                        // 拼图：随机获得一个汉字部件
+                        const elements = ['木', '日', '月', '亻', '氵', '火', '土', '金', '石', '口'];
+                        const randomElement = elements[Math.floor(Math.random() * elements.length)];
+                        this.player.pouch.push(randomElement);
+                        this.addLog(`获得拼图！随机获得部件: ${randomElement}`);
+                        break;
+                }
+            }
+
+            restartGame() {
+                // 重置游戏状态
+                this.map = this.generateMap();
+                this.player = {
+                    x: 0,
+                    y: 0,
+                    hp: 3,
+                    attack: 1,
+                    pouch: [],
+                    score: 0
+                };
+                this.logs = [];
+                
+                // 移除重新开始按钮
+                const restartBtn = document.getElementById('restartBtn');
+                if (restartBtn) {
+                    restartBtn.remove();
+                }
+                
+                // 重新初始化游戏
+                this.init();
+                
+                // 重新添加键盘事件监听
+                document.addEventListener('keydown', this.handleKeydown);
+            }
+
+            renderMap() {
+                const grid = document.getElementById('grid');
+                grid.innerHTML = '';
+                
+                for (let y = 0; y < 9; y++) {
+                    for (let x = 0; x < 9; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = `cell ${this.map[y][x].type}`;
+                        if (x === this.player.x && y === this.player.y) {
+                            cell.classList.add('player');
+                        }
+                        
+                        const cellContent = document.createElement('div');
+                        cellContent.className = 'cell-content';
+                        cellContent.textContent = this.map[y][x].char;
+                        cell.appendChild(cellContent);
+                        
+                        grid.appendChild(cell);
+                    }
+                }
+            }
+
+            updateStatus() {
+                document.getElementById('hp').textContent = this.player.hp;
+                document.getElementById('attack').textContent = this.player.attack;
+                document.getElementById('score').textContent = this.player.score;
+                
+                const pouch = document.getElementById('pouch');
+                pouch.innerHTML = '';
+                this.player.pouch.forEach(item => {
+                    const pouchItem = document.createElement('div');
+                    pouchItem.className = 'pouch-item';
+                    pouchItem.textContent = item;
+                    pouch.appendChild(pouchItem);
+                });
+            }
+
+            addLog(message) {
+                this.logs.push(message);
+                const log = document.getElementById('log');
+                log.innerHTML += `<p>${message}</p>`;
+                log.scrollTop = log.scrollHeight;
+            }
+
+            handleKeydown = (e) => {
+                switch (e.key) {
+                    case 'ArrowUp': this.move('up'); break;
+                    case 'ArrowDown': this.move('down'); break;
+                    case 'ArrowLeft': this.move('left'); break;
+                    case 'ArrowRight': this.move('right'); break;
+                }
+            }
+
+            handleTouch() {
+                let startX, startY;
+                
+                document.addEventListener('touchstart', (e) => {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                });
+                
+                document.addEventListener('touchend', (e) => {
+                    if (!startX || !startY) return;
+                    
+                    const endX = e.changedTouches[0].clientX;
+                    const endY = e.changedTouches[0].clientY;
+                    
+                    const diffX = endX - startX;
+                    const diffY = endY - startY;
+                    
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        if (diffX > 50) {
+                            this.move('right');
+                        } else if (diffX < -50) {
+                            this.move('left');
+                        }
+                    } else {
+                        if (diffY > 50) {
+                            this.move('down');
+                        } else if (diffY < -50) {
+                            this.move('up');
+                        }
+                    }
+                    
+                    startX = startY = null;
+                });
+            }
+        }
+
+        // 初始化游戏
+        const game = new GameState();
+        
+        // 事件监听
+        document.addEventListener('keydown', game.handleKeydown);
+        game.handleTouch();
+        
+        document.getElementById('craftBtn').addEventListener('click', () => {
+            game.craft();
+        });
+    </script>
+</body>
+</html>
